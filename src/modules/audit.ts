@@ -102,9 +102,31 @@ export async function buildAuditRequest(): Promise<AuditRequest | null> {
   };
 }
 
+function escapeHTML(value: string): string {
+  return value.replace(/[&<>]/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+    };
+    return entities[character];
+  });
+}
+
 function findingText(finding: AuditFinding): string {
-  const proposal = finding.proposed ? ` → ${finding.proposed}` : "";
-  return `[${finding.itemKey}] ${finding.field}: ${finding.reason}${proposal}`;
+  const current = finding.current
+    ? `atual: ${finding.current}`
+    : "atual: vazio";
+  const proposed = finding.proposed
+    ? ` · proposta: ${finding.proposed}`
+    : " · proposta: nenhuma";
+  const sources = finding.sources.length
+    ? ` · fontes: ${finding.sources.join(", ")}`
+    : "";
+  return escapeHTML(
+    `[${finding.itemKey}] ${finding.field} · ${current}${proposed} · confiança: ${finding.confidence} · ${finding.reason}${sources}`,
+  );
 }
 
 function showAuditResults(request: AuditRequest, result: AuditResult): void {

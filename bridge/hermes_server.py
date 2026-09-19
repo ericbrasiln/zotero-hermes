@@ -23,6 +23,9 @@ The response must have exactly this shape:
 "kind":"...","confidence":"high|medium|low","reason":"...",
 "sources":[],"action":"review"}]}
 Use action 'review' for every finding. Report only evidence-based findings.
+For a correctable field, include a concrete proposed value only when the
+payload and reliable evidence support it. Include source URLs in sources.
+When evidence is insufficient, use proposed:null and sources:[].
 """
 
 
