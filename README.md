@@ -1,91 +1,165 @@
 # Zotero Hermes
 
-A Zotero plugin for collection auditing with [Hermes Agent](https://hermes-agent.nousresearch.com/docs/).
+Plugin para Zotero 7+ que audita coleções bibliográficas com o [Hermes Agent](https://hermes-agent.nousresearch.com/docs/).
 
-> **Status:** project planning. No installable plugin has been released yet.
+> **Status:** protótipo funcional. O plugin já foi instalado e testado manualmente no Zotero com uma coleção sintética. Ainda não há release público estável nem escrita de metadados.
 
-Zotero Hermes will identify metadata problems in a Zotero collection and return source-grounded correction proposals for review. The user will approve changes before the plugin writes anything to the Zotero library.
+O Zotero Hermes identifica problemas de metadados e exibe achados estruturados para revisão humana. Quando houver evidência suficiente, o Hermes pode propor um valor corrigido, indicar confiança, justificar a proposta e fornecer fontes. O plugin não aplica alterações automaticamente.
 
-The plugin will support two Hermes deployment modes:
+## Estado atual
 
-- **Local Hermes:** the plugin connects to a Hermes bridge running on the same computer as Zotero.
-- **Remote Hermes:** the plugin connects to a Hermes bridge running on a VPS, preferably over a private Tailscale network or authenticated HTTPS.
+Implementado e verificado:
 
-## Planned audit checks
+- plugin bootstrapped para Zotero 7+;
+- painel de preferências com modos local e remoto;
+- leitura dos itens regulares da coleção selecionada;
+- payload JSON versionado (`schemaVersion: "1.0"`);
+- menu de contexto **Auditar coleção com Hermes**;
+- `GET /health` para teste de conexão;
+- `POST /v1/audits` para auditoria;
+- bridge mock para testes determinísticos;
+- bridge real que encaminha a auditoria ao Hermes API Server;
+- autenticação Bearer entre plugin e bridge;
+- comunicação remota validada via Tailscale;
+- janela de resultados com item, campo, valor atual, proposta, confiança, motivo e fontes;
+- resposta do bridge validada antes de chegar ao plugin;
+- nenhuma escrita na biblioteca do Zotero.
 
-- missing fields;
-- suspicious or malformed ISBNs;
-- inconsistent author names and titles;
-- duplicate titles and probable duplicate records;
-- missing languages;
-- optional tag analysis.
-
-## Planned workflow
-
-1. Select a Zotero collection.
-2. Choose **Audit with Hermes**.
-3. Review the proposed findings, sources, confidence levels, and field diffs.
-4. Accept or reject individual corrections.
-5. Let the plugin write only the approved changes in a Zotero transaction.
-6. Export the audit report when needed.
-
-The first release will be read-only. Metadata writes will be added only after the audit report and approval flow are stable.
-
-## Architecture
+A integração remota validada durante o desenvolvimento foi:
 
 ```text
-Zotero plugin
-  ├─ reads the selected collection through Zotero's local JavaScript API
-  ├─ sends a minimal structured payload to a Hermes bridge
-  ├─ displays structured findings and source links
-  └─ writes approved changes locally in a transaction
-
-Hermes bridge
-  ├─ authenticates the plugin
-  ├─ invokes the Zotero auditing skill
-  ├─ performs external source lookups when necessary
-  └─ returns schema-validated JSON; it never writes directly to Zotero
+Zotero local
+  ↓ Tailscale
+Bridge na VPS: 100.84.75.108:18766
+  ↓ loopback
+Hermes API Server: 127.0.0.1:8642
 ```
 
-The plugin will not send Zotero API keys to Hermes. PDFs, notes, and attachments will not leave the local machine unless the user explicitly enables a future feature for them.
+A porta `18765` permanece reservada para o bridge mock. A porta `18766` é usada pelo bridge real durante os testes atuais.
 
-## Repository layout
+## O que ainda não está implementado
+
+- serviço persistente para iniciar o bridge após reinicialização da VPS;
+- aprovação, rejeição e edição de propostas na interface;
+- escrita controlada em transações do Zotero;
+- registro local e restauração de alterações;
+- exportação dos relatórios;
+- release público estável e submissão à página de plugins do Zotero.
+
+## Auditoria e segurança
+
+O plugin envia apenas os campos necessários para a auditoria: título, autores, data, editora, lugar, ISBN, idioma, etiquetas, tipo e chave do item. Attachments, PDFs e notas não são enviados.
+
+O bridge real:
+
+- exige `BRIDGE_TOKEN` para `POST /v1/audits`;
+- acessa o Hermes API Server apenas por `127.0.0.1`;
+- aceita somente `action: "review"`;
+- rejeita achados sem os campos obrigatórios;
+- aceita apenas confiança `high`, `medium` ou `low`;
+- não executa ferramentas de escrita no Zotero;
+- conserva `proposed: null` quando não há evidência suficiente.
+
+Não envie tokens por Telegram, issues públicas ou commits. O token do bridge deve ser armazenado apenas na instalação local do usuário e na configuração protegida da VPS.
+
+## Modos de execução
+
+### Hermes local
+
+O plugin e o bridge rodam no mesmo computador. O bridge deve escutar apenas em loopback, por exemplo:
+
+```text
+http://127.0.0.1:18766
+```
+
+### Hermes remoto
+
+O plugin roda no computador com Zotero. O bridge e o Hermes rodam na VPS. A conexão recomendada é Tailscale:
+
+```text
+http://<endereço-tailscale-da-vps>:18766
+```
+
+O Hermes API Server não deve ser exposto diretamente à rede. Ele deve permanecer em `127.0.0.1:8642`; somente o bridge o acessa.
+
+## Configuração do bridge real na VPS
+
+O bridge real está em [`bridge/hermes_server.py`](bridge/hermes_server.py). A execução manual usada nos testes é:
+
+```bash
+set -a
+. ~/.hermes/.env
+set +a
+export HERMES_API_KEY="$API_SERVER_KEY"
+export BRIDGE_TOKEN="$(tr -d '\n' < ~/.hermes/zotero-bridge.token)"
+export BRIDGE_HOST=100.84.75.108
+export BRIDGE_PORT=18766
+python -u bridge/hermes_server.py
+```
+
+A configuração do Hermes API Server deve conter, sem publicar a chave:
+
+```text
+API_SERVER_ENABLED=true
+API_SERVER_KEY=<chave protegida>
+```
+
+O bridge persistente via `systemd --user` ainda é a próxima etapa operacional. A execução manual acima não deve ser tratada como configuração de produção.
+
+## Desenvolvimento
+
+Pré-requisitos:
+
+- Zotero 7+;
+- Node.js e npm;
+- Python 3.11+ para os testes do bridge;
+- uma instalação do Hermes Agent para o bridge real;
+- um perfil de teste separado no Zotero;
+- coleção com registros sintéticos.
+
+Comandos de verificação:
+
+```bash
+npm run build
+npm run lint:check
+python -m unittest discover -s bridge -p 'test_*.py' -v
+```
+
+O pacote gerado fica em:
+
+```text
+.scaffold/build/zotero-hermes.xpi
+```
+
+Não use a biblioteca pessoal real para testes de desenvolvimento. O fluxo foi validado com uma coleção sintética chamada `Teste Hermes`.
+
+## Estrutura do repositório
 
 ```text
 .
-├── README.md
-├── LICENSE
+├── addon/                 # manifesto, preferências e localidades
+├── bridge/
+│   ├── hermes_server.py   # bridge real para o Hermes API Server
+│   ├── mock_server.py     # bridge determinístico para testes
+│   └── test_mock_server.py
 ├── docs/
 │   └── WORKPLAN.md
-└── src/                 # planned Zotero plugin source
+├── src/                   # código TypeScript do plugin
+├── test/                  # testes do plugin
+├── LICENSE
+└── README.md
 ```
 
-## Development prerequisites
+## Projeto e autoria
 
-The implementation target is Zotero 7+ and the current Zotero bootstrapped plugin model. The development setup will include:
+O projeto é desenvolvido e mantido por **Eric Brasil**, como membro do **LABHDUFBA — Laboratório de Humanidades Digitais da Universidade Federal da Bahia**.
 
-- Zotero and a separate test profile;
-- JavaScript/Node tooling used by the official Zotero plugin template;
-- a local Hermes bridge for integration tests;
-- a test Zotero library with synthetic records;
-- automated tests for audit findings and write transactions.
+Este projeto está sendo escrito com **Hermes Agent**, usando modelos da família **GPT-5.6**. Todo código e documentação gerados passam por revisão humana, execução local e testes verificáveis.
 
-No production Zotero library should be used for development tests.
+## Licença
 
-## Project affiliation
+MIT. Consulte [LICENSE](LICENSE).
 
-This project is developed and maintained by **Eric Brasil**, as a member of the **LABHDUFBA — Laboratório de Humanidades Digitais da Universidade Federal da Bahia**.
+## Plano de trabalho
 
-The initial project name is **Zotero Hermes**. The final package ID, icon, visual identity, and public description will be defined before the first release.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-## Development disclosure
-
-This project is being developed with **Hermes Agent**, using models from the **GPT-5.6 family**. All generated code and documentation are subject to human review, local testing, and the project's verification procedures.
-
-## Contributing
-
-Contribution guidelines will be added before the first public development release. Until then, design decisions and implementation scope are tracked in [docs/WORKPLAN.md](docs/WORKPLAN.md).
+O estado detalhado das fases está em [docs/WORKPLAN.md](docs/WORKPLAN.md).
