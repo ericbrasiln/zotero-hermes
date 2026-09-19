@@ -82,6 +82,10 @@ The initial project name is **Zotero Hermes**. The final package ID, icon, visua
 
 MIT. See [LICENSE](LICENSE).
 
+## Development disclosure
+
+This project is being developed with **Hermes Agent**, using models from the **GPT-5.6 family**. All generated code and documentation are subject to human review, local testing, and the project's verification procedures.
+
 ## Contributing
 
 Contribution guidelines will be added before the first public development release. Until then, design decisions and implementation scope are tracked in [docs/WORKPLAN.md](docs/WORKPLAN.md).
