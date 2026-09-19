@@ -14,9 +14,9 @@
     "type": "git",
     "url": "git+https://github.com/ericbrasiln/zotero-hermes.git"
   },
-  "author": "LABHDUFBA",
+  "author": "Eric Brasil (LABHDUFBA)",
   "bugs": {
-    "url": "https://github.com/windingwind/zotero-plugin-template/issues"
+    "url": "https://github.com/ericbrasiln/zotero-hermes/issues"
   },
   "homepage": "https://github.com/ericbrasiln/zotero-hermes",
   "license": "MIT",

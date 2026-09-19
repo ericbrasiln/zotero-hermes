@@ -74,7 +74,7 @@ No production Zotero library should be used for development tests.
 
 ## Project affiliation
 
-This project is developed as an open-source product of the **LABHDUFBA — Laboratório de Humanidades Digitais da Universidade Federal da Bahia**.
+This project is developed and maintained by **Eric Brasil**, as a member of the **LABHDUFBA — Laboratório de Humanidades Digitais da Universidade Federal da Bahia**.
 
 The initial project name is **Zotero Hermes**. The final package ID, icon, visual identity, and public description will be defined before the first release.
 
