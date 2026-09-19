@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -88,8 +89,15 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    server = HTTPServer(("127.0.0.1", 8765), Handler)
-    print("zotero-hermes mock bridge listening on http://127.0.0.1:8765", flush=True)
+    server = HTTPServer(
+        (os.environ.get("BRIDGE_HOST", "127.0.0.1"),
+         int(os.environ.get("BRIDGE_PORT", "8765"))),
+        Handler,
+    )
+    print(
+        f"zotero-hermes mock bridge listening on http://{server.server_address[0]}:{server.server_address[1]}",
+        flush=True,
+    )
     server.serve_forever()
 
 
