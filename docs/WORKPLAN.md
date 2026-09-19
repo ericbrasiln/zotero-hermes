@@ -61,7 +61,7 @@ Construir um plugin para Zotero 7+ que audite uma coleção por meio do Hermes, 
 - [x] Validar o contrato com bridge mock e testes unitários.
 - [x] Validar o acesso remoto pela rede Tailscale.
 - [ ] Adicionar testes automatizados de autenticação, timeout e falha do Hermes.
-- [ ] Criar serviço persistente `systemd --user` para o bridge.
+- [x] Criar serviço persistente `systemd --user` para o bridge.
 
 ### Fase 4 — auditoria pelo Hermes
 
@@ -161,4 +161,4 @@ O fluxo manual foi testado com uma coleção sintética `Teste Hermes`, primeiro
 
 ## Próximo passo
 
-O próximo trabalho é instalar o bridge real como serviço persistente na VPS. Só depois disso deve ser implementada a aprovação humana e a escrita controlada no Zotero.
+O próximo trabalho é implementar a aprovação humana das propostas. A escrita controlada no Zotero só deve vir depois da revisão da interface, dos testes de concorrência e da validação do diff final.

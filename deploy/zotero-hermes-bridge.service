@@ -1,0 +1,14 @@
+[Unit]
+Description=Zotero Hermes bridge
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ebn/zotero-hermes
+EnvironmentFile=/home/ebn/.hermes/zotero-bridge.env
+ExecStart=/home/ebn/.hermes/hermes-agent/venv/bin/python -u bridge/hermes_server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

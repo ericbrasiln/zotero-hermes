@@ -104,7 +104,24 @@ API_SERVER_ENABLED=true
 API_SERVER_KEY=<chave protegida>
 ```
 
-O bridge persistente via `systemd --user` ainda é a próxima etapa operacional. A execução manual acima não deve ser tratada como configuração de produção.
+O bridge persistente está descrito em [`deploy/zotero-hermes-bridge.service`](../deploy/zotero-hermes-bridge.service) e instalado como serviço `systemd --user` na VPS. A execução manual abaixo permanece útil para diagnóstico, mas não é mais o modo recomendado:
+
+```bash
+set -a
+. ~/.hermes/zotero-bridge.env
+set +a
+cd /home/ebn/zotero-hermes
+python -u bridge/hermes_server.py
+```
+
+Para consultar o serviço:
+
+```bash
+systemctl --user status zotero-hermes-bridge
+journalctl --user -u zotero-hermes-bridge -n 50 --no-pager
+```
+
+O serviço usa `/home/ebn/.hermes/zotero-bridge.env`, com permissão `0600`. O arquivo não pertence ao repositório e não deve ser publicado.
 
 ## Desenvolvimento
 
@@ -142,6 +159,8 @@ Não use a biblioteca pessoal real para testes de desenvolvimento. O fluxo foi v
 │   ├── hermes_server.py   # bridge real para o Hermes API Server
 │   ├── mock_server.py     # bridge determinístico para testes
 │   └── test_mock_server.py
+├── deploy/
+│   └── zotero-hermes-bridge.service
 ├── docs/
 │   └── WORKPLAN.md
 ├── src/                   # código TypeScript do plugin
