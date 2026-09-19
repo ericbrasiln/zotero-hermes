@@ -1,5 +1,10 @@
-pref-title = 插件模板设置示例
-pref-enable =
-    .label = 开启
-pref-input = 输入
+pref-title = Zotero Hermes
+pref-mode = Hermes 模式
+pref-mode-local = 本地 Hermes
+pref-mode-remote = 远程 Hermes（VPS）
+pref-url = Bridge URL
+pref-token = Authentication token
+pref-timeout = Request timeout (ms)
+pref-health = Test bridge connection
+pref-privacy = The plugin sends bibliographic metadata only. It does not send PDFs, notes, or attachments in this prototype.
 pref-help = { $name } Build { $version } { $time }

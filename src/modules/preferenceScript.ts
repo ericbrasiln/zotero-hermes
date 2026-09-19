@@ -1,131 +1,58 @@
 import { config } from "../../package.json";
-import { getString } from "../utils/locale";
+import { getPref, setPref } from "../utils/prefs";
 
-export async function registerPrefsScripts(_window: Window) {
-  // This function is called when the prefs window is opened
-  // See addon/content/preferences.xhtml onpaneload
-  if (!addon.data.prefs) {
-    addon.data.prefs = {
-      window: _window,
-      columns: [
-        {
-          dataKey: "title",
-          label: getString("prefs-table-title"),
-          fixedWidth: true,
-          width: 100,
-        },
-        {
-          dataKey: "detail",
-          label: getString("prefs-table-detail"),
-        },
-      ],
-      rows: [
-        {
-          title: "Orange",
-          detail: "It's juicy",
-        },
-        {
-          title: "Banana",
-          detail: "It's sweet",
-        },
-        {
-          title: "Apple",
-          detail: "I mean the fruit APPLE",
-        },
-      ],
-    };
-  } else {
-    addon.data.prefs.window = _window;
+export function registerPrefsScripts(window: Window): void {
+  const doc = window.document;
+  const mode = doc.querySelector(
+    `#zotero-prefpane-${config.addonRef}-mode`,
+  ) as XUL.MenuList | null;
+  const url = doc.querySelector(
+    `#zotero-prefpane-${config.addonRef}-url`,
+  ) as HTMLInputElement | null;
+  const token = doc.querySelector(
+    `#zotero-prefpane-${config.addonRef}-token`,
+  ) as HTMLInputElement | null;
+  const timeout = doc.querySelector(
+    `#zotero-prefpane-${config.addonRef}-timeout`,
+  ) as HTMLInputElement | null;
+  const health = doc.querySelector(
+    `#zotero-prefpane-${config.addonRef}-health`,
+  ) as XUL.Button | null;
+  if (!mode || !url || !token || !timeout || !health) return;
+
+  mode.value = getPref("hermes-mode");
+  url.value = getPref("bridge-url");
+  token.value = getPref("auth-token");
+  timeout.value = String(getPref("request-timeout"));
+
+  mode.addEventListener("command", () => setPref("hermes-mode", mode.value));
+  url.addEventListener("change", () => setPref("bridge-url", url.value.trim()));
+  token.addEventListener("change", () => setPref("auth-token", token.value));
+  timeout.addEventListener("change", () => {
+    const value = Math.max(1000, Number.parseInt(timeout.value, 10) || 30000);
+    timeout.value = String(value);
+    setPref("request-timeout", value);
+  });
+  health.addEventListener("command", () => void testBridge(window));
+}
+
+async function testBridge(window: Window): Promise<void> {
+  const baseURL = getPref("bridge-url").replace(/\/$/, "");
+  const token = getPref("auth-token");
+  try {
+    const response = await (Zotero as any).HTTP.request(
+      "GET",
+      `${baseURL}/health`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        responseType: "text",
+      },
+    );
+    const body = JSON.parse(
+      response.responseText ?? response.response ?? response,
+    );
+    window.alert(`Bridge disponível: ${body.service ?? "ok"}`);
+  } catch (error) {
+    window.alert(`Não foi possível conectar ao bridge: ${String(error)}`);
   }
-  updatePrefsUI();
-  bindPrefEvents();
-}
-
-async function updatePrefsUI() {
-  // You can initialize some UI elements on prefs window
-  // with addon.data.prefs.window.document
-  // Or bind some events to the elements
-  const renderLock = ztoolkit.getGlobal("Zotero").Promise.defer();
-  if (addon.data.prefs?.window == undefined) return;
-  const tableHelper = new ztoolkit.VirtualizedTable(addon.data.prefs?.window)
-    .setContainerId(`${config.addonRef}-table-container`)
-    .setProp({
-      id: `${config.addonRef}-prefs-table`,
-      // Do not use setLocale, as it modifies the Zotero.Intl.strings
-      // Set locales directly to columns
-      columns: addon.data.prefs?.columns,
-      showHeader: true,
-      multiSelect: true,
-      staticColumns: true,
-      disableFontSizeScaling: true,
-    })
-    .setProp("getRowCount", () => addon.data.prefs?.rows.length || 0)
-    .setProp(
-      "getRowData",
-      (index) =>
-        addon.data.prefs?.rows[index] || {
-          title: "no data",
-          detail: "no data",
-        },
-    )
-    // Show a progress window when selection changes
-    .setProp("onSelectionChange", (selection) => {
-      new ztoolkit.ProgressWindow(config.addonName)
-        .createLine({
-          text: `Selected line: ${addon.data.prefs?.rows
-            .filter((v, i) => selection.isSelected(i))
-            .map((row) => row.title)
-            .join(",")}`,
-          progress: 100,
-        })
-        .show();
-    })
-    // When pressing delete, delete selected line and refresh table.
-    // Returning false to prevent default event.
-    .setProp("onKeyDown", (event: KeyboardEvent) => {
-      if (event.key == "Delete" || (Zotero.isMac && event.key == "Backspace")) {
-        addon.data.prefs!.rows =
-          addon.data.prefs?.rows.filter(
-            (v, i) => !tableHelper.treeInstance.selection.isSelected(i),
-          ) || [];
-        tableHelper.render();
-        return false;
-      }
-      return true;
-    })
-    // For find-as-you-type
-    .setProp(
-      "getRowString",
-      (index) => addon.data.prefs?.rows[index].title || "",
-    )
-    // Render the table.
-    .render(-1, () => {
-      renderLock.resolve();
-    });
-  await renderLock.promise;
-  ztoolkit.log("Preference table rendered!");
-}
-
-function bindPrefEvents() {
-  addon.data
-    .prefs!.window.document?.querySelector(
-      `#zotero-prefpane-${config.addonRef}-enable`,
-    )
-    ?.addEventListener("command", (e: Event) => {
-      ztoolkit.log(e);
-      addon.data.prefs!.window.alert(
-        `Successfully changed to ${(e.target as XUL.Checkbox).checked}!`,
-      );
-    });
-
-  addon.data
-    .prefs!.window.document?.querySelector(
-      `#zotero-prefpane-${config.addonRef}-input`,
-    )
-    ?.addEventListener("change", (e: Event) => {
-      ztoolkit.log(e);
-      addon.data.prefs!.window.alert(
-        `Successfully changed to ${(e.target as HTMLInputElement).value}!`,
-      );
-    });
 }

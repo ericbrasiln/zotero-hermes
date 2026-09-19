@@ -1,5 +1,10 @@
-pref-title = Addon Template Example
-pref-enable =
-    .label = Enable
-pref-input = Input
+pref-title = Zotero Hermes
+pref-mode = Hermes mode
+pref-mode-local = Local Hermes
+pref-mode-remote = Remote Hermes (VPS)
+pref-url = Bridge URL
+pref-token = Authentication token
+pref-timeout = Request timeout (ms)
+pref-health = Test bridge connection
+pref-privacy = The plugin sends bibliographic metadata only. It does not send PDFs, notes, or attachments in this prototype.
 pref-help = { $name } Build { $version } { $time }

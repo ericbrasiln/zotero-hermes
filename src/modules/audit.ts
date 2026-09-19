@@ -1,3 +1,5 @@
+import { getPref } from "../utils/prefs";
+
 export interface AuditItemPayload {
   key: string;
   itemType: string;
@@ -90,13 +92,20 @@ export async function auditSelectedCollection(): Promise<void> {
     );
     return;
   }
+  const baseURL = getPref("bridge-url").replace(/\/$/, "");
+  const token = getPref("auth-token");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
   const response = await (Zotero as any).HTTP.request(
     "POST",
-    "http://127.0.0.1:8765/v1/audits",
+    `${baseURL}/v1/audits`,
     {
       body: JSON.stringify(request),
-      headers: { "Content-Type": "application/json" },
+      headers,
       responseType: "text",
+      timeout: getPref("request-timeout"),
     },
   );
   const result = JSON.parse(

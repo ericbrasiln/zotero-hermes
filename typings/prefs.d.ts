@@ -7,8 +7,10 @@
 declare namespace _ZoteroTypes {
   interface Prefs {
     PluginPrefsMap: {
-      "enable": boolean;
-      "input": string;
+      "hermes-mode": string;
+      "bridge-url": string;
+      "auth-token": string;
+      "request-timeout": number;
     };
   }
 }

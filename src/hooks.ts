@@ -1,4 +1,5 @@
 import { registerCollectionAuditMenu } from "./modules/audit";
+import { registerPrefsScripts } from "./modules/preferenceScript";
 import { initLocale } from "./utils/locale";
 import { createZToolkit } from "./utils/ztoolkit";
 
@@ -34,9 +35,14 @@ function onShutdown(): void {
   delete Zotero[addon.data.config.addonInstance];
 }
 
+function onPrefsEvent(type: string, data: { window: Window }): void {
+  if (type === "load") registerPrefsScripts(data.window);
+}
+
 export default {
   onStartup,
   onShutdown,
   onMainWindowLoad,
   onMainWindowUnload,
+  onPrefsEvent,
 };
