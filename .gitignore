@@ -1,0 +1,25 @@
+# Node dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+*.xpi
+
+# Test profiles and local fixtures
+.zotero-test-profile/
+.tmp/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Editors and OS files
+.DS_Store
+.vscode/
+.idea/
+
+# Test output
+coverage/
+*.log
