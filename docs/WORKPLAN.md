@@ -68,7 +68,7 @@ Build a Zotero 7+ plugin that audits a selected collection through Hermes, prese
 {
   "schemaVersion": "1.0",
   "operation": "audit_collection",
-  "collection": {"key": "...", "name": "..."},
+  "collection": { "key": "...", "name": "..." },
   "items": [
     {
       "key": "...",
@@ -108,7 +108,7 @@ Build a Zotero 7+ plugin that audits a selected collection through Hermes, prese
       "kind": "inconsistent_creator",
       "confidence": "high",
       "reason": "...",
-      "sources": [{"title": "...", "url": "..."}],
+      "sources": [{ "title": "...", "url": "..." }],
       "action": "review"
     }
   ]

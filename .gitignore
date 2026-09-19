@@ -4,6 +4,7 @@ node_modules/
 # Build artifacts
 dist/
 build/
+.scaffold/
 *.xpi
 
 # Test profiles and local fixtures
@@ -23,3 +24,4 @@ build/
 # Test output
 coverage/
 *.log
+*.tsbuildinfo
