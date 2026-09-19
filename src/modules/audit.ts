@@ -27,6 +27,24 @@ export interface AuditRequest {
   };
 }
 
+export interface AuditFinding {
+  itemKey: string;
+  field: string;
+  current: string;
+  proposed: string | null;
+  kind: string;
+  confidence: string;
+  reason: string;
+  sources: string[];
+  action: string;
+}
+
+export interface AuditResult {
+  schemaVersion: string;
+  collectionKey: string;
+  findings: AuditFinding[];
+}
+
 function getSelectedCollection(): any | null {
   const pane = ztoolkit.getGlobal("ZoteroPane") as any;
   if (typeof pane.getSelectedCollection !== "function") return null;
@@ -84,6 +102,48 @@ export async function buildAuditRequest(): Promise<AuditRequest | null> {
   };
 }
 
+function findingText(finding: AuditFinding): string {
+  const proposal = finding.proposed ? ` → ${finding.proposed}` : "";
+  return `[${finding.itemKey}] ${finding.field}: ${finding.reason}${proposal}`;
+}
+
+function showAuditResults(request: AuditRequest, result: AuditResult): void {
+  const findings = Array.isArray(result.findings) ? result.findings : [];
+  const dialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 1)
+    .addCell(0, 0, {
+      tag: "h1",
+      properties: {
+        innerHTML: `Auditoria: ${request.collection.name}`,
+      },
+    })
+    .addCell(1, 0, {
+      tag: "p",
+      properties: {
+        innerHTML: `Itens analisados: ${request.items.length} · Achados: ${findings.length}`,
+      },
+    });
+
+  findings.forEach((finding, index) => {
+    dialog.addCell(index + 2, 0, {
+      tag: "label",
+      namespace: "html",
+      properties: { innerHTML: findingText(finding) },
+      styles: { width: "760px", padding: "4px 0" },
+    });
+  });
+
+  dialog
+    .addButton("Fechar", "close")
+    .setDialogData({})
+    .open("Zotero Hermes — resultados", {
+      centerscreen: true,
+      height: Math.min(700, 180 + findings.length * 28),
+      width: 850,
+      resizable: true,
+    });
+  addon.data.dialog = dialog;
+}
+
 export async function auditSelectedCollection(): Promise<void> {
   const request = await buildAuditRequest();
   if (!request) {
@@ -92,31 +152,32 @@ export async function auditSelectedCollection(): Promise<void> {
     );
     return;
   }
-  const baseURL = getPref("bridge-url").replace(/\/$/, "");
-  const token = getPref("auth-token");
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await (Zotero as any).HTTP.request(
-    "POST",
-    `${baseURL}/v1/audits`,
-    {
-      body: JSON.stringify(request),
-      headers,
-      responseType: "text",
-      timeout: getPref("request-timeout"),
-    },
-  );
-  const result = JSON.parse(
-    response.responseText ?? response.response ?? response,
-  );
-  const findingCount = Array.isArray(result.findings)
-    ? result.findings.length
-    : 0;
-  ztoolkit.getGlobal("alert")(
-    `Auditoria recebida para ${request.collection.name}.\nItens: ${request.items.length}\nAchados: ${findingCount}`,
-  );
+  try {
+    const baseURL = getPref("bridge-url").replace(/\/$/, "");
+    const token = getPref("auth-token");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await (Zotero as any).HTTP.request(
+      "POST",
+      `${baseURL}/v1/audits`,
+      {
+        body: JSON.stringify(request),
+        headers,
+        responseType: "text",
+        timeout: getPref("request-timeout"),
+      },
+    );
+    const result = JSON.parse(
+      response.responseText ?? response.response ?? response,
+    ) as AuditResult;
+    showAuditResults(request, result);
+  } catch (error) {
+    ztoolkit.getGlobal("alert")(
+      `Falha ao executar a auditoria no bridge:\n${String(error)}`,
+    );
+  }
 }
 
 export function registerCollectionAuditMenu(): void {
@@ -136,7 +197,6 @@ export function registerCollectionAuditMenu(): void {
     });
     return;
   }
-  // Compatibility path for Zotero versions without MenuManager.
   ztoolkit.Menu.register("collection" as any, {
     tag: "menuitem",
     id: "zotero-hermes-collection-audit",
