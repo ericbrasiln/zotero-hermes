@@ -25,3 +25,5 @@ build/
 coverage/
 *.log
 *.tsbuildinfo
+__pycache__/
+*.pyc
