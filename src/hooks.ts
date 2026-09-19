@@ -1,6 +1,6 @@
 import { registerCollectionAuditMenu } from "./modules/audit";
 import { registerPrefsScripts } from "./modules/preferenceScript";
-import { initLocale } from "./utils/locale";
+import { getString, initLocale } from "./utils/locale";
 import { createZToolkit } from "./utils/ztoolkit";
 
 async function onStartup() {
@@ -10,6 +10,7 @@ async function onStartup() {
     Zotero.uiReadyPromise,
   ]);
   initLocale();
+  registerPreferencePane();
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
   );
@@ -33,6 +34,15 @@ function onShutdown(): void {
   addon.data.alive = false;
   // @ts-expect-error - Plugin instance is not typed
   delete Zotero[addon.data.config.addonInstance];
+}
+
+function registerPreferencePane(): void {
+  Zotero.PreferencePanes.register({
+    pluginID: addon.data.config.addonID,
+    src: `${rootURI}content/preferences.xhtml`,
+    label: getString("prefs-title"),
+    image: `chrome://${addon.data.config.addonRef}/content/icons/favicon.png`,
+  });
 }
 
 function onPrefsEvent(type: string, data: { window: Window }): void {
