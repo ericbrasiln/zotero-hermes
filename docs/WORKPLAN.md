@@ -92,13 +92,13 @@ Construir um plugin para Zotero 7+ que audite uma coleção por meio do Hermes, 
 
 ### Fase 6 — escrita controlada
 
-- [ ] Exibir um diff final de cada alteração selecionada.
-- [ ] Releitura dos itens imediatamente antes da escrita.
-- [ ] Abortar se o item mudou desde a auditoria.
-- [ ] Aplicar alterações aprovadas em transação do Zotero.
-- [ ] Registrar valor antigo, valor novo, fonte e decisão do usuário.
+- [x] Exibir um diff final de cada alteração selecionada.
+- [x] Reler os itens imediatamente antes da escrita.
+- [x] Abortar se a coleção, item ou campo mudou desde a auditoria.
+- [x] Aplicar alterações aprovadas dentro de `Zotero.DB.executeTransaction`.
+- [x] Reler cada item e verificar o valor final após a escrita.
+- [ ] Armazenar log local durável com valor anterior, novo valor, fonte e decisão.
 - [ ] Implementar restauração a partir do log.
-- [ ] Releitura posterior para verificar os valores exatos.
 
 ### Fase 7 — qualidade e lançamento
 
@@ -165,4 +165,4 @@ O fluxo manual foi testado com uma coleção sintética `Teste Hermes`, primeiro
 
 ## Próximo passo
 
-O próximo trabalho é implementar a aprovação humana das propostas. A escrita controlada no Zotero só deve vir depois da revisão da interface, dos testes de concorrência e da validação do diff final.
+O próximo trabalho é criar o log local durável e testar a escrita em um perfil Zotero limpo. A biblioteca real não deve ser usada nesses testes.

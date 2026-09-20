@@ -23,7 +23,10 @@ Implementado e verificado:
 - comunicação remota validada via Tailscale;
 - janela de resultados com seleção e revisão editável de propostas, sem escrita no Zotero;
 - resposta do bridge validada antes de chegar ao plugin;
-- nenhuma escrita na biblioteca do Zotero.
+- releitura dos itens e detecção de conflito antes da escrita;
+- escrita controlada em transação do Zotero para campos permitidos;
+- verificação dos valores após a escrita;
+- nenhuma escrita ocorre sem o botão explícito **Confirmar e aplicar alterações**.
 
 A integração remota validada durante o desenvolvimento foi:
 
@@ -39,11 +42,9 @@ A porta `18765` permanece reservada para o bridge mock. A porta `18766` é usada
 
 ## O que ainda não está implementado
 
-- serviço persistente para iniciar o bridge após reinicialização da VPS;
-- aprovação, rejeição e edição de propostas na interface;
-- escrita controlada em transações do Zotero;
-- registro local e restauração de alterações;
+- registro local durável e restauração de alterações;
 - exportação dos relatórios;
+- testes manuais da escrita em perfil Zotero limpo;
 - release público estável e submissão à página de plugins do Zotero.
 
 ## Auditoria e segurança
