@@ -81,9 +81,11 @@ Construir um plugin para Zotero 7+ que audite uma coleção por meio do Hermes, 
 - [x] Exibir item, campo, valor atual, proposta, confiança e motivo.
 - [x] Exibir fontes quando a resposta as fornecer.
 - [x] Permitir selecionar achados com proposta para revisão, sem escrever no Zotero.
+- [x] Editar o valor proposto durante a revisão.
+- [x] Registrar aprovação ou rejeição somente na sessão, sem escrever no Zotero.
 - [ ] Agrupar achados por item e tipo de problema.
 - [ ] Adicionar filtros por confiança e campo.
-- [ ] Adicionar aceitar, rejeitar e editar proposta.
+- [ ] Persistir decisões entre auditorias ou exportar o estado da revisão.
 - [ ] Permitir exportar o relatório em JSON e HTML.
 - [ ] Manter a interface sem escrita enquanto a revisão não estiver validada.
 

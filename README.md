@@ -21,7 +21,7 @@ Implementado e verificado:
 - bridge real que encaminha a auditoria ao Hermes API Server;
 - autenticação Bearer entre plugin e bridge;
 - comunicação remota validada via Tailscale;
-- janela de resultados com seleção de achados que têm proposta, sem escrita no Zotero;
+- janela de resultados com seleção e revisão editável de propostas, sem escrita no Zotero;
 - resposta do bridge validada antes de chegar ao plugin;
 - nenhuma escrita na biblioteca do Zotero.
 
