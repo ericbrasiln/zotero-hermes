@@ -139,6 +139,57 @@ function findingText(finding: AuditFinding): string {
   );
 }
 
+function showFinalDiff(
+  request: AuditRequest,
+  findings: AuditFinding[],
+  proposedValues: string[],
+): void {
+  const diffDialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 1)
+    .addCell(0, 0, {
+      tag: "h1",
+      properties: { innerHTML: "Diff final da revisão" },
+    })
+    .addCell(1, 0, {
+      tag: "p",
+      properties: {
+        innerHTML: `Coleção: ${escapeHTML(request.collection.name)} · ${findings.length} alteração(ões) aprovadas. Esta etapa ainda não escreve no Zotero.`,
+      },
+    });
+
+  findings.forEach((finding, index) => {
+    const current = finding.current || "(vazio)";
+    const proposed = proposedValues[index] || "(vazio)";
+    diffDialog.addCell(index + 2, 0, {
+      tag: "label",
+      namespace: "html",
+      properties: {
+        innerHTML: escapeHTML(
+          `[${finding.itemKey}] ${finding.field}: ${current} → ${proposed} · confiança: ${finding.confidence}`,
+        ),
+      },
+      styles: { width: "780px", padding: "4px 0" },
+    });
+  });
+
+  diffDialog
+    .addButton("Confirmar revisão", "confirm", {
+      callback: () => {
+        ztoolkit.getGlobal("alert")(
+          "Revisão confirmada. A releitura dos itens e a escrita transacional serão implementadas na próxima etapa. Nenhuma alteração foi aplicada.",
+        );
+      },
+    })
+    .addButton("Cancelar", "cancel")
+    .setDialogData({})
+    .open("Zotero Hermes — diff final", {
+      centerscreen: true,
+      height: Math.min(700, 180 + findings.length * 28),
+      width: 850,
+      resizable: true,
+    });
+  addon.data.dialog = diffDialog;
+}
+
 function showProposalReview(
   request: AuditRequest,
   findings: AuditFinding[],
@@ -202,6 +253,9 @@ function showProposalReview(
     ztoolkit.getGlobal("alert")(
       `${findings.length} proposta(s) marcadas como ${decision === "approved" ? "aprovadas" : "rejeitadas"} nesta sessão. Nenhuma alteração foi aplicada no Zotero.`,
     );
+    if (decision === "approved") {
+      showFinalDiff(request, findings, proposedValues);
+    }
   };
 
   reviewDialog
