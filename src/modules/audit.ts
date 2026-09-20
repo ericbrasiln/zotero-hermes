@@ -139,6 +139,67 @@ function findingText(finding: AuditFinding): string {
   );
 }
 
+const WRITABLE_FIELDS = new Set([
+  "title",
+  "date",
+  "publisher",
+  "place",
+  "ISBN",
+  "language",
+]);
+
+async function applyApprovedChanges(
+  request: AuditRequest,
+  findings: AuditFinding[],
+  proposedValues: string[],
+): Promise<void> {
+  const collection = getSelectedCollection();
+  if (!collection || String(collection.key) !== request.collection.key) {
+    throw new Error(
+      "A coleção selecionada mudou desde a auditoria. A operação foi abortada.",
+    );
+  }
+
+  const changes = findings.map((finding, index) => {
+    const field = finding.field;
+    if (!WRITABLE_FIELDS.has(field)) {
+      throw new Error(`O campo ${field} não é gravável nesta versão.`);
+    }
+    const item = (Zotero as any).Items.getByLibraryAndKey(
+      collection.libraryID,
+      finding.itemKey,
+    );
+    if (!item) throw new Error(`Item ${finding.itemKey} não foi encontrado.`);
+    const current = String(item.getField(field) ?? "");
+    if (current !== String(finding.current ?? "")) {
+      throw new Error(
+        `O item ${finding.itemKey} mudou desde a auditoria. A operação foi abortada.`,
+      );
+    }
+    return { finding, item, field, current, proposed: proposedValues[index] };
+  });
+
+  await (Zotero as any).DB.executeTransaction(async () => {
+    for (const change of changes) {
+      change.item.setField(change.field, change.proposed);
+      await change.item.save();
+    }
+  });
+
+  for (const change of changes) {
+    const finalValue = String(change.item.getField(change.field) ?? "");
+    if (finalValue !== change.proposed) {
+      throw new Error(
+        `A verificação pós-escrita falhou para ${change.finding.itemKey}:${change.field}.`,
+      );
+    }
+  }
+
+  ztoolkit.getGlobal("alert")(
+    `${changes.length} alteração(ões) aplicadas e verificadas no Zotero.`,
+  );
+}
+
 function showFinalDiff(
   request: AuditRequest,
   findings: AuditFinding[],
@@ -172,11 +233,15 @@ function showFinalDiff(
   });
 
   diffDialog
-    .addButton("Confirmar revisão", "confirm", {
-      callback: () => {
-        ztoolkit.getGlobal("alert")(
-          "Revisão confirmada. A releitura dos itens e a escrita transacional serão implementadas na próxima etapa. Nenhuma alteração foi aplicada.",
-        );
+    .addButton("Confirmar e aplicar alterações", "confirm", {
+      callback: async () => {
+        try {
+          await applyApprovedChanges(request, findings, proposedValues);
+        } catch (error) {
+          ztoolkit.getGlobal("alert")(
+            `Nenhuma alteração foi aplicada:\n${String(error)}`,
+          );
+        }
       },
     })
     .addButton("Cancelar", "cancel")
