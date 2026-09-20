@@ -45,6 +45,16 @@ export interface AuditResult {
   findings: AuditFinding[];
 }
 
+interface ReviewDecision {
+  itemKey: string;
+  field: string;
+  decision: "approved" | "rejected";
+  proposed: string;
+  timestamp: string;
+}
+
+const reviewSession = new Map<string, ReviewDecision>();
+
 function getSelectedCollection(): any | null {
   const pane = ztoolkit.getGlobal("ZoteroPane") as any;
   if (typeof pane.getSelectedCollection !== "function") return null;
@@ -133,7 +143,8 @@ function showProposalReview(
   request: AuditRequest,
   findings: AuditFinding[],
 ): void {
-  const reviewDialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 1)
+  const proposedValues = findings.map((finding) => finding.proposed ?? "");
+  const reviewDialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 2)
     .addCell(0, 0, {
       tag: "h1",
       properties: { innerHTML: "Revisão de propostas" },
@@ -141,42 +152,71 @@ function showProposalReview(
     .addCell(1, 0, {
       tag: "p",
       properties: {
-        innerHTML: `Coleção: ${escapeHTML(request.collection.name)} · ${findings.length} proposta(s) selecionada(s). Nenhuma alteração será aplicada.`,
+        innerHTML: `Coleção: ${escapeHTML(request.collection.name)} · ${findings.length} proposta(s). Nenhuma alteração será aplicada.`,
       },
     });
 
   findings.forEach((finding, index) => {
-    reviewDialog.addCell(index + 2, 0, {
-      tag: "label",
-      namespace: "html",
-      properties: {
-        innerHTML: `${index + 1}. ${findingText(finding)}`,
-      },
-      styles: { width: "760px", padding: "4px 0" },
-    });
+    const inputID = `zotero-hermes-proposal-${index}`;
+    reviewDialog
+      .addCell(index + 2, 0, {
+        tag: "label",
+        namespace: "html",
+        properties: {
+          for: inputID,
+          innerHTML: `${index + 1}. ${findingText(finding)}`,
+        },
+        styles: { width: "590px", padding: "4px 0" },
+      })
+      .addCell(index + 2, 1, {
+        tag: "input",
+        namespace: "html",
+        properties: {
+          type: "text",
+          id: inputID,
+          value: proposedValues[index],
+        },
+        listeners: [
+          {
+            type: "input",
+            listener: (event: any) => {
+              proposedValues[index] = String(event.target.value ?? "");
+            },
+          },
+        ],
+        styles: { width: "220px" },
+      });
   });
 
+  const saveDecisions = (decision: "approved" | "rejected") => {
+    const timestamp = new Date().toISOString();
+    findings.forEach((finding, index) => {
+      reviewSession.set(`${finding.itemKey}:${finding.field}`, {
+        itemKey: finding.itemKey,
+        field: finding.field,
+        decision,
+        proposed: proposedValues[index],
+        timestamp,
+      });
+    });
+    ztoolkit.getGlobal("alert")(
+      `${findings.length} proposta(s) marcadas como ${decision === "approved" ? "aprovadas" : "rejeitadas"} nesta sessão. Nenhuma alteração foi aplicada no Zotero.`,
+    );
+  };
+
   reviewDialog
-    .addButton("Aprovar para próxima etapa", "approve", {
-      callback: () => {
-        ztoolkit.getGlobal("alert")(
-          `Foram aprovadas ${findings.length} proposta(s) para a próxima etapa. Nenhuma alteração foi aplicada no Zotero.`,
-        );
-      },
+    .addButton("Aprovar propostas", "approve", {
+      callback: () => saveDecisions("approved"),
     })
-    .addButton("Rejeitar seleção", "reject", {
-      callback: () => {
-        ztoolkit.getGlobal("alert")(
-          `Foram rejeitadas ${findings.length} proposta(s). Nenhuma alteração foi aplicada no Zotero.`,
-        );
-      },
+    .addButton("Rejeitar propostas", "reject", {
+      callback: () => saveDecisions("rejected"),
     })
     .addButton("Cancelar", "cancel")
     .setDialogData({})
     .open("Zotero Hermes — revisão", {
       centerscreen: true,
-      height: Math.min(700, 180 + findings.length * 28),
-      width: 850,
+      height: Math.min(700, 180 + findings.length * 32),
+      width: 900,
       resizable: true,
     });
   addon.data.dialog = reviewDialog;
