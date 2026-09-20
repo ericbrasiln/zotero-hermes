@@ -129,6 +129,70 @@ function findingText(finding: AuditFinding): string {
   );
 }
 
+function getSelectedFindingIndexes(dialog: any): number[] {
+  const window = dialog.window;
+  const nodes = window?.document?.querySelectorAll(
+    "input[data-finding-index]:checked",
+  );
+  if (!nodes) return [];
+  return Array.from(nodes)
+    .map((node: any) => Number(node.getAttribute("data-finding-index")))
+    .filter((index) => Number.isInteger(index));
+}
+
+function showProposalReview(
+  request: AuditRequest,
+  findings: AuditFinding[],
+): void {
+  const reviewDialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 1)
+    .addCell(0, 0, {
+      tag: "h1",
+      properties: { innerHTML: "Revisão de propostas" },
+    })
+    .addCell(1, 0, {
+      tag: "p",
+      properties: {
+        innerHTML: `Coleção: ${escapeHTML(request.collection.name)} · ${findings.length} proposta(s) selecionada(s). Nenhuma alteração será aplicada.`,
+      },
+    });
+
+  findings.forEach((finding, index) => {
+    reviewDialog.addCell(index + 2, 0, {
+      tag: "label",
+      namespace: "html",
+      properties: {
+        innerHTML: `${index + 1}. ${findingText(finding)}`,
+      },
+      styles: { width: "760px", padding: "4px 0" },
+    });
+  });
+
+  reviewDialog
+    .addButton("Aprovar para próxima etapa", "approve", {
+      callback: () => {
+        ztoolkit.getGlobal("alert")(
+          `Foram aprovadas ${findings.length} proposta(s) para a próxima etapa. Nenhuma alteração foi aplicada no Zotero.`,
+        );
+      },
+    })
+    .addButton("Rejeitar seleção", "reject", {
+      callback: () => {
+        ztoolkit.getGlobal("alert")(
+          `Foram rejeitadas ${findings.length} proposta(s). Nenhuma alteração foi aplicada no Zotero.`,
+        );
+      },
+    })
+    .addButton("Cancelar", "cancel")
+    .setDialogData({})
+    .open("Zotero Hermes — revisão", {
+      centerscreen: true,
+      height: Math.min(700, 180 + findings.length * 28),
+      width: 850,
+      resizable: true,
+    });
+  addon.data.dialog = reviewDialog;
+}
+
 function showAuditResults(request: AuditRequest, result: AuditResult): void {
   const findings = Array.isArray(result.findings) ? result.findings : [];
   const dialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 2)
@@ -172,14 +236,17 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
   dialog
     .addButton("Revisar seleção", "review", {
       callback: () => {
-        const window = (dialog as any).window;
-        const selected =
-          window?.document?.querySelectorAll(
-            "input[data-finding-index]:checked",
-          ).length ?? 0;
-        ztoolkit.getGlobal("alert")(
-          `Achados selecionados para revisão: ${selected}. Nenhuma alteração foi aplicada.`,
-        );
+        const selectedIndexes = getSelectedFindingIndexes(dialog);
+        const selectedFindings = selectedIndexes
+          .map((index) => findings[index])
+          .filter((finding): finding is AuditFinding => Boolean(finding));
+        if (!selectedFindings.length) {
+          ztoolkit.getGlobal("alert")(
+            "Selecione pelo menos uma proposta para revisar.",
+          );
+          return;
+        }
+        showProposalReview(request, selectedFindings);
       },
       noClose: true,
     })
