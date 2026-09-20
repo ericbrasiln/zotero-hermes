@@ -129,11 +129,9 @@ function findingText(finding: AuditFinding): string {
   );
 }
 
-function getSelectedFindingIndexes(dialog: any): number[] {
-  const window = dialog.window;
-  const nodes = window?.document?.querySelectorAll(
-    "input[data-finding-index]:checked",
-  );
+function getSelectedFindingIndexes(event: any): number[] {
+  const document = event?.target?.ownerDocument;
+  const nodes = document?.querySelectorAll("input[data-finding-index]:checked");
   if (!nodes) return [];
   return Array.from(nodes)
     .map((node: any) => Number(node.getAttribute("data-finding-index")))
@@ -235,8 +233,8 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
 
   dialog
     .addButton("Revisar seleção", "review", {
-      callback: () => {
-        const selectedIndexes = getSelectedFindingIndexes(dialog);
+      callback: (event) => {
+        const selectedIndexes = getSelectedFindingIndexes(event);
         const selectedFindings = selectedIndexes
           .map((index) => findings[index])
           .filter((finding): finding is AuditFinding => Boolean(finding));
