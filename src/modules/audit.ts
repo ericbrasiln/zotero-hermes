@@ -206,6 +206,24 @@ function itemValue(item: any, field: string): unknown {
   return String(item.getField(field) ?? "");
 }
 
+function canonicalStructured(field: string, value: unknown): string {
+  const parsed = structuredValue(value);
+  if (field === "tags" && Array.isArray(parsed)) {
+    return JSON.stringify(parsed.map((tag) => String(tag)).sort());
+  }
+  if (field === "creators" && Array.isArray(parsed)) {
+    return JSON.stringify(
+      parsed.map((creator: any) => ({
+        creatorType: String(creator?.creatorType ?? "author"),
+        firstName: String(creator?.firstName ?? ""),
+        lastName: String(creator?.lastName ?? ""),
+        name: String(creator?.name ?? ""),
+      })),
+    );
+  }
+  return JSON.stringify(parsed ?? null);
+}
+
 function valuesEqual(
   field: string,
   actual: unknown,
@@ -213,8 +231,8 @@ function valuesEqual(
 ): boolean {
   if (field === "creators" || field === "tags") {
     return (
-      JSON.stringify(actual ?? null) ===
-      JSON.stringify(structuredValue(expected) ?? null)
+      canonicalStructured(field, actual) ===
+      canonicalStructured(field, expected)
     );
   }
   return String(actual ?? "") === String(expected ?? "");
@@ -275,7 +293,7 @@ async function applyApprovedChanges(
     const current = itemValue(item, finding.field);
     if (!valuesEqual(finding.field, current, finding.current)) {
       throw new Error(
-        `O item ${finding.itemKey} mudou desde a auditoria. A operação foi abortada.`,
+        `O item ${finding.itemKey}, campo ${finding.field}, mudou desde a auditoria. A operação foi abortada.`,
       );
     }
     const proposed = structuredValue(proposedValues[index]);
