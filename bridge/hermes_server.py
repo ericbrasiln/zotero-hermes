@@ -25,7 +25,8 @@ The response must have exactly this shape:
 Use action 'review' for every finding. Report only evidence-based findings.
 For a correctable field, include a concrete proposed value only when the
 payload and reliable evidence support it. Include source URLs in sources.
-When evidence is insufficient, use proposed:null and sources:[].
+When field is creators, current and proposed must be JSON arrays of creator objects with creatorType and either name or firstName/lastName. When field is tags, current and proposed must be JSON arrays of strings. For scalar fields, use strings. Only propose creators or tags when the evidence supports the complete replacement; never invent a partial list.
+When evidence is insufficient, use proposed:null and sources:[] .
 """
 
 

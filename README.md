@@ -26,6 +26,10 @@ Implementado e verificado:
 - releitura dos itens e detecção de conflito antes da escrita;
 - escrita controlada em transação do Zotero para campos permitidos;
 - verificação dos valores após a escrita;
+- registro local durável de alterações aplicadas;
+- restauração da última operação registrada;
+- suporte estruturado para `creators` e `tags`;
+- suporte a campos bibliográficos escalares adicionais;
 - nenhuma escrita ocorre sem o botão explícito **Confirmar e aplicar alterações**.
 
 A integração remota validada durante o desenvolvimento foi:
@@ -44,7 +48,8 @@ A porta `18765` permanece reservada para o bridge mock. A porta `18766` é usada
 
 - registro local durável e restauração de alterações;
 - exportação dos relatórios;
-- testes manuais da escrita em perfil Zotero limpo;
+- suporte a operações incrementais de tags e a edição parcial de creators;
+- testes manuais em perfil Zotero limpo;
 - release público estável e submissão à página de plugins do Zotero.
 
 ## Auditoria e segurança

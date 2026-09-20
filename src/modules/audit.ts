@@ -1,4 +1,4 @@
-import { getPref } from "../utils/prefs";
+import { getPref, setPref } from "../utils/prefs";
 
 export interface AuditItemPayload {
   key: string;
@@ -30,8 +30,8 @@ export interface AuditRequest {
 export interface AuditFinding {
   itemKey: string;
   field: string;
-  current: string;
-  proposed: string | null;
+  current: unknown;
+  proposed: unknown;
   kind: string;
   confidence: string;
   reason: string;
@@ -124,13 +124,17 @@ function escapeHTML(value: string): string {
   });
 }
 
+function valueText(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "vazio";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 function findingText(finding: AuditFinding): string {
-  const current = finding.current
-    ? `atual: ${finding.current}`
-    : "atual: vazio";
-  const proposed = finding.proposed
-    ? ` · proposta: ${finding.proposed}`
-    : " · proposta: nenhuma";
+  const current = `atual: ${valueText(finding.current)}`;
+  const proposed =
+    finding.proposed === null || finding.proposed === undefined
+      ? " · proposta: nenhuma"
+      : ` · proposta: ${valueText(finding.proposed)}`;
   const sources = finding.sources.length
     ? ` · fontes: ${finding.sources.join(", ")}`
     : "";
@@ -146,7 +150,107 @@ const WRITABLE_FIELDS = new Set([
   "place",
   "ISBN",
   "language",
+  "abstractNote",
+  "url",
+  "DOI",
+  "volume",
+  "issue",
+  "pages",
+  "series",
+  "seriesNumber",
+  "archive",
+  "archiveLocation",
+  "callNumber",
+  "creators",
+  "tags",
 ]);
+
+interface ChangeLogEntry {
+  batchID: string;
+  timestamp: string;
+  libraryID: number;
+  itemKey: string;
+  field: string;
+  oldValue: unknown;
+  newValue: unknown;
+  decision: "approved";
+  confidence: string;
+  sources: string[];
+}
+
+function structuredValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function creatorValue(item: any): any[] {
+  return (item.getCreators?.() ?? []).map((creator: any) => ({
+    creatorType: String(creator.creatorType ?? "author"),
+    firstName: String(creator.firstName ?? ""),
+    lastName: String(creator.lastName ?? ""),
+    name: String(creator.name ?? ""),
+  }));
+}
+
+function tagValue(item: any): string[] {
+  return (item.getTags?.() ?? []).map((tag: any) => String(tag.tag ?? tag));
+}
+
+function itemValue(item: any, field: string): unknown {
+  if (field === "creators") return creatorValue(item);
+  if (field === "tags") return tagValue(item);
+  return String(item.getField(field) ?? "");
+}
+
+function valuesEqual(
+  field: string,
+  actual: unknown,
+  expected: unknown,
+): boolean {
+  if (field === "creators" || field === "tags") {
+    return (
+      JSON.stringify(actual ?? null) ===
+      JSON.stringify(structuredValue(expected) ?? null)
+    );
+  }
+  return String(actual ?? "") === String(expected ?? "");
+}
+
+function setItemValue(item: any, field: string, value: unknown): void {
+  if (field === "creators") {
+    const creators = structuredValue(value);
+    if (!Array.isArray(creators))
+      throw new Error("A proposta de creators não é uma lista JSON válida.");
+    item.setCreators(creators);
+    return;
+  }
+  if (field === "tags") {
+    const tags = structuredValue(value);
+    if (!Array.isArray(tags) || tags.some((tag) => typeof tag !== "string")) {
+      throw new Error("A proposta de tags deve ser uma lista JSON de textos.");
+    }
+    item.setTags(tags);
+    return;
+  }
+  item.setField(field, String(value ?? ""));
+}
+
+function readChangeLog(): ChangeLogEntry[] {
+  try {
+    const parsed = JSON.parse(String(getPref("review-log") || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeChangeLog(entries: ChangeLogEntry[]): void {
+  setPref("review-log", JSON.stringify(entries.slice(-500)));
+}
 
 async function applyApprovedChanges(
   request: AuditRequest,
@@ -159,44 +263,108 @@ async function applyApprovedChanges(
       "A coleção selecionada mudou desde a auditoria. A operação foi abortada.",
     );
   }
-
   const changes = findings.map((finding, index) => {
-    const field = finding.field;
-    if (!WRITABLE_FIELDS.has(field)) {
-      throw new Error(`O campo ${field} não é gravável nesta versão.`);
+    if (!WRITABLE_FIELDS.has(finding.field)) {
+      throw new Error(`O campo ${finding.field} não é gravável nesta versão.`);
     }
     const item = (Zotero as any).Items.getByLibraryAndKey(
       collection.libraryID,
       finding.itemKey,
     );
     if (!item) throw new Error(`Item ${finding.itemKey} não foi encontrado.`);
-    const current = String(item.getField(field) ?? "");
-    if (current !== String(finding.current ?? "")) {
+    const current = itemValue(item, finding.field);
+    if (!valuesEqual(finding.field, current, finding.current)) {
       throw new Error(
         `O item ${finding.itemKey} mudou desde a auditoria. A operação foi abortada.`,
       );
     }
-    return { finding, item, field, current, proposed: proposedValues[index] };
+    const proposed = structuredValue(proposedValues[index]);
+    return { finding, item, field: finding.field, current, proposed };
   });
-
+  const batchID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const timestamp = new Date().toISOString();
   await (Zotero as any).DB.executeTransaction(async () => {
     for (const change of changes) {
-      change.item.setField(change.field, change.proposed);
+      setItemValue(change.item, change.field, change.proposed);
       await change.item.save();
     }
   });
-
   for (const change of changes) {
-    const finalValue = String(change.item.getField(change.field) ?? "");
-    if (finalValue !== change.proposed) {
+    const finalValue = itemValue(change.item, change.field);
+    if (!valuesEqual(change.field, finalValue, change.proposed)) {
       throw new Error(
         `A verificação pós-escrita falhou para ${change.finding.itemKey}:${change.field}.`,
       );
     }
   }
-
+  const log = readChangeLog();
+  writeChangeLog(
+    log.concat(
+      changes.map((change) => ({
+        batchID,
+        timestamp,
+        libraryID: collection.libraryID,
+        itemKey: change.finding.itemKey,
+        field: change.field,
+        oldValue: change.current,
+        newValue: change.proposed,
+        decision: "approved",
+        confidence: change.finding.confidence,
+        sources: change.finding.sources,
+      })),
+    ),
+  );
   ztoolkit.getGlobal("alert")(
-    `${changes.length} alteração(ões) aplicadas e verificadas no Zotero.`,
+    `${changes.length} alteração(ões) aplicadas, verificadas e registradas no log.`,
+  );
+}
+
+export async function restoreLastChanges(): Promise<void> {
+  const log = readChangeLog();
+  if (!log.length) {
+    ztoolkit.getGlobal("alert")(
+      "Não há alterações registradas para restaurar.",
+    );
+    return;
+  }
+  const batchID = log[log.length - 1].batchID;
+  const entries = log.filter((entry) => entry.batchID === batchID);
+  const changes = entries.map((entry) => {
+    const item = (Zotero as any).Items.getByLibraryAndKey(
+      entry.libraryID,
+      entry.itemKey,
+    );
+    if (!item) throw new Error(`Item ${entry.itemKey} não foi encontrado.`);
+    const current = itemValue(item, entry.field);
+    if (!valuesEqual(entry.field, current, entry.newValue)) {
+      throw new Error(
+        `O item ${entry.itemKey} mudou desde a última operação. Restauração abortada.`,
+      );
+    }
+    return { entry, item };
+  });
+  await (Zotero as any).DB.executeTransaction(async () => {
+    for (const change of changes) {
+      setItemValue(change.item, change.entry.field, change.entry.oldValue);
+      await change.item.save();
+    }
+  });
+  for (const change of changes) {
+    if (
+      !valuesEqual(
+        change.entry.field,
+        itemValue(change.item, change.entry.field),
+        change.entry.oldValue,
+      )
+    ) {
+      throw new Error(
+        `A verificação da restauração falhou para ${change.entry.itemKey}:${change.entry.field}.`,
+      );
+    }
+  }
+  writeChangeLog(log.filter((entry) => entry.batchID !== batchID));
+  ztoolkit.getGlobal("alert")(
+    `${changes.length} alteração(ões) restauradas e verificadas.`,
   );
 }
 
@@ -218,8 +386,8 @@ function showFinalDiff(
     });
 
   findings.forEach((finding, index) => {
-    const current = finding.current || "(vazio)";
-    const proposed = proposedValues[index] || "(vazio)";
+    const current = valueText(finding.current);
+    const proposed = valueText(proposedValues[index]);
     diffDialog.addCell(index + 2, 0, {
       tag: "label",
       namespace: "html",
@@ -259,7 +427,11 @@ function showProposalReview(
   request: AuditRequest,
   findings: AuditFinding[],
 ): void {
-  const proposedValues = findings.map((finding) => finding.proposed ?? "");
+  const proposedValues = findings.map((finding) =>
+    finding.proposed === null || finding.proposed === undefined
+      ? ""
+      : valueText(finding.proposed),
+  );
   const reviewDialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 2)
     .addCell(0, 0, {
       tag: "h1",
@@ -468,6 +640,11 @@ export function registerCollectionAuditMenu(): void {
           menuType: "menuitem",
           l10nID: "audit-collection-menu",
           onCommand: () => void auditSelectedCollection(),
+        },
+        {
+          menuType: "menuitem",
+          label: "Restaurar última alteração do Hermes",
+          onCommand: () => void restoreLastChanges(),
         },
       ],
     });

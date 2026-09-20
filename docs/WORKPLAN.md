@@ -97,8 +97,9 @@ Construir um plugin para Zotero 7+ que audite uma coleção por meio do Hermes, 
 - [x] Abortar se a coleção, item ou campo mudou desde a auditoria.
 - [x] Aplicar alterações aprovadas dentro de `Zotero.DB.executeTransaction`.
 - [x] Reler cada item e verificar o valor final após a escrita.
-- [ ] Armazenar log local durável com valor anterior, novo valor, fonte e decisão.
-- [ ] Implementar restauração a partir do log.
+- [x] Armazenar log local durável com valor anterior, novo valor, fonte e decisão.
+- [x] Implementar restauração da última operação registrada.
+- [ ] Adicionar restauração seletiva por operação.
 
 ### Fase 7 — qualidade e lançamento
 

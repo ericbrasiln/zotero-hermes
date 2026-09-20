@@ -11,6 +11,7 @@ declare namespace _ZoteroTypes {
       "bridge-url": string;
       "auth-token": string;
       "request-timeout": number;
+      "review-log": string;
     };
   }
 }
