@@ -359,7 +359,8 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
 
   const selectedIndexes = new Set<number>();
   findings.forEach((finding, index) => {
-    const canReview = finding.proposed !== null;
+    const canReview =
+      finding.proposed !== null && WRITABLE_FIELDS.has(finding.field);
     dialog
       .addCell(index + 2, 0, {
         tag: "input",
@@ -385,7 +386,7 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
         namespace: "html",
         properties: {
           for: `zotero-hermes-finding-${index}`,
-          innerHTML: findingText(finding),
+          innerHTML: `${findingText(finding)}${WRITABLE_FIELDS.has(finding.field) ? "" : " · campo ainda não gravável"}`,
         },
         styles: { width: "760px", padding: "4px 0" },
       });
