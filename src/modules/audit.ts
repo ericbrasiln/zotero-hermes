@@ -129,15 +129,6 @@ function findingText(finding: AuditFinding): string {
   );
 }
 
-function getSelectedFindingIndexes(event: any): number[] {
-  const document = event?.target?.ownerDocument;
-  const nodes = document?.querySelectorAll("input[data-finding-index]:checked");
-  if (!nodes) return [];
-  return Array.from(nodes)
-    .map((node: any) => Number(node.getAttribute("data-finding-index")))
-    .filter((index) => Number.isInteger(index));
-}
-
 function showProposalReview(
   request: AuditRequest,
   findings: AuditFinding[],
@@ -207,6 +198,7 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
       },
     });
 
+  const selectedIndexes = new Set<number>();
   findings.forEach((finding, index) => {
     const canReview = finding.proposed !== null;
     dialog
@@ -219,6 +211,15 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
           "data-finding-index": String(index),
           disabled: !canReview,
         },
+        listeners: [
+          {
+            type: "change",
+            listener: (event: any) => {
+              if (event.target.checked) selectedIndexes.add(index);
+              else selectedIndexes.delete(index);
+            },
+          },
+        ],
       })
       .addCell(index + 2, 1, {
         tag: "label",
@@ -233,9 +234,9 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
 
   dialog
     .addButton("Revisar seleção", "review", {
-      callback: (event) => {
-        const selectedIndexes = getSelectedFindingIndexes(event);
-        const selectedFindings = selectedIndexes
+      callback: () => {
+        const selectedFindings = Array.from(selectedIndexes)
+          .sort((a, b) => a - b)
           .map((index) => findings[index])
           .filter((finding): finding is AuditFinding => Boolean(finding));
         if (!selectedFindings.length) {
