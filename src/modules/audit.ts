@@ -131,11 +131,11 @@ function findingText(finding: AuditFinding): string {
 
 function showAuditResults(request: AuditRequest, result: AuditResult): void {
   const findings = Array.isArray(result.findings) ? result.findings : [];
-  const dialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 1)
+  const dialog = new ztoolkit.Dialog(Math.max(3, findings.length + 2), 2)
     .addCell(0, 0, {
       tag: "h1",
       properties: {
-        innerHTML: `Auditoria: ${request.collection.name}`,
+        innerHTML: `Auditoria: ${escapeHTML(request.collection.name)}`,
       },
     })
     .addCell(1, 0, {
@@ -146,15 +146,43 @@ function showAuditResults(request: AuditRequest, result: AuditResult): void {
     });
 
   findings.forEach((finding, index) => {
-    dialog.addCell(index + 2, 0, {
-      tag: "label",
-      namespace: "html",
-      properties: { innerHTML: findingText(finding) },
-      styles: { width: "760px", padding: "4px 0" },
-    });
+    const canReview = finding.proposed !== null;
+    dialog
+      .addCell(index + 2, 0, {
+        tag: "input",
+        namespace: "html",
+        properties: {
+          type: "checkbox",
+          id: `zotero-hermes-finding-${index}`,
+          "data-finding-index": String(index),
+          disabled: !canReview,
+        },
+      })
+      .addCell(index + 2, 1, {
+        tag: "label",
+        namespace: "html",
+        properties: {
+          for: `zotero-hermes-finding-${index}`,
+          innerHTML: findingText(finding),
+        },
+        styles: { width: "760px", padding: "4px 0" },
+      });
   });
 
   dialog
+    .addButton("Revisar seleção", "review", {
+      callback: () => {
+        const window = (dialog as any).window;
+        const selected =
+          window?.document?.querySelectorAll(
+            "input[data-finding-index]:checked",
+          ).length ?? 0;
+        ztoolkit.getGlobal("alert")(
+          `Achados selecionados para revisão: ${selected}. Nenhuma alteração foi aplicada.`,
+        );
+      },
+      noClose: true,
+    })
     .addButton("Fechar", "close")
     .setDialogData({})
     .open("Zotero Hermes — resultados", {
